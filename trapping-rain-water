@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌧️ Trapping Rain Water — Visual Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #0a1628;
+    --sky2: #0d2144;
+    --water: #38bdf8;
+    --water-light: #7dd3fc;
+    --water-deep: #0369a1;
+    --stone: #475569;
+    --stone-light: #94a3b8;
+    --wall: #c084fc;
+    --accent: #f59e0b;
+    --green: #4ade80;
+    --red: #f87171;
+    --text: #e2e8f0;
+    --subtext: #94a3b8;
+    --card: rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--sky);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated rain background */
+  .rain-bg {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .raindrop {
+    position: absolute;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, rgba(56,189,248,0.3));
+    animation: fall linear infinite;
+  }
+
+  @keyframes fall {
+    0% { transform: translateY(-100px); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 0.5; }
+    100% { transform: translateY(110vh); opacity: 0; }
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    padding: 3rem 0 2rem;
+  }
+
+  .badge {
+    display: inline-block;
+    background: rgba(56,189,248,0.15);
+    border: 1px solid rgba(56,189,248,0.3);
+    color: var(--water);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    padding: 0.3rem 1rem;
+    border-radius: 100px;
+    margin-bottom: 1.2rem;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 8vw, 6rem);
+    letter-spacing: 0.03em;
+    line-height: 1;
+    background: linear-gradient(135deg, #fff 0%, var(--water-light) 60%, var(--water) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1rem;
+  }
+
+  .subtitle {
+    color: var(--subtext);
+    font-size: 1.1rem;
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Sections */
+  .section {
+    margin-top: 2.5rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .section-desc {
+    color: var(--subtext);
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+  }
+
+  /* ===== VISUALIZATION ===== */
+  .viz-container {
+    background: rgba(0,0,0,0.3);
+    border-radius: 14px;
+    padding: 1.5rem 1rem 1rem;
+    overflow-x: auto;
+  }
+
+  #bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 220px;
+    padding: 0 4px;
+    min-width: 520px;
+  }
+
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .bar-col:hover .bar-tooltip { opacity: 1; transform: translateY(-4px); }
+
+  .bar-tooltip {
+    position: absolute;
+    top: -36px;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: all 0.2s;
+    pointer-events: none;
+    z-index: 10;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .water-cell {
+    width: 100%;
+    border-radius: 2px 2px 0 0;
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    background: linear-gradient(to bottom, rgba(56,189,248,0.7), rgba(3,105,161,0.8));
+    border-top: 2px solid rgba(125,211,252,0.6);
+    box-shadow: 0 -2px 8px rgba(56,189,248,0.3);
+  }
+
+  .stone-cell {
+    width: 100%;
+    background: linear-gradient(135deg, #64748b, #334155);
+    border-radius: 2px;
+    border: 1px solid rgba(148,163,184,0.2);
+    transition: all 0.5s;
+  }
+
+  .stone-cell.highlighted {
+    background: linear-gradient(135deg, var(--wall), #7c3aed);
+    box-shadow: 0 0 12px rgba(192,132,252,0.5);
+  }
+
+  .bar-idx {
+    font-size: 0.65rem;
+    color: var(--subtext);
+    margin-top: 6px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Labels above */
+  .left-max-line, .right-max-line {
+    position: absolute;
+    width: 100%;
+    border-top: 2px dashed;
+    top: 0;
+    transition: all 0.4s;
+    opacity: 0;
+  }
+  .left-max-line { border-color: rgba(74,222,128,0.7); }
+  .right-max-line { border-color: rgba(248,113,113,0.7); }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 1.2rem;
+    align-items: center;
+  }
+
+  button {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.55rem 1.2rem;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--water), var(--water-deep));
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(56,189,248,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(56,189,248,0.4); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-secondary {
+    background: rgba(255,255,255,0.07);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+
+  .btn-accent {
+    background: linear-gradient(135deg, var(--accent), #d97706);
+    color: #000;
+    font-weight: 700;
+  }
+  .btn-accent:hover { transform: translateY(-2px); }
+
+  .step-info {
+    background: rgba(56,189,248,0.08);
+    border: 1px solid rgba(56,189,248,0.2);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    min-height: 60px;
+    transition: all 0.3s;
+  }
+
+  .step-info .highlight { color: var(--water); font-weight: 600; }
+  .step-info .highlight-g { color: var(--green); font-weight: 600; }
+  .step-info .highlight-r { color: var(--red); font-weight: 600; }
+  .step-info .highlight-a { color: var(--accent); font-weight: 600; }
+
+  /* Water counter */
+  .water-counter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    color: var(--water);
+    margin-top: 1rem;
+    letter-spacing: 0.05em;
+  }
+  .water-counter span { font-family: 'DM Sans', sans-serif; font-size: 0.85rem; color: var(--subtext); font-weight: 500; letter-spacing: 0 }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .stat-card {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.05em;
+  }
+  .stat-label {
+    font-size: 0.7rem;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+  }
+
+  /* ===== ANALOGY ===== */
+  .analogy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  @media (max-width: 600px) { .analogy-grid { grid-template-columns: 1fr; } }
+
+  .analogy-card {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.2rem;
+  }
+
+  .analogy-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .analogy-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
+  .analogy-card p { font-size: 0.85rem; color: var(--subtext); line-height: 1.6; }
+
+  /* ===== STEPS ===== */
+  .step-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .step-card {
+    display: flex;
+    gap: 1rem;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.2rem;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    line-height: 1;
+    color: var(--water);
+    min-width: 40px;
+  }
+
+  .step-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.3rem; }
+  .step-card p { font-size: 0.85rem; color: var(--subtext); line-height: 1.6; }
+
+  /* ===== CODE ===== */
+  .code-block {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 14px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    margin-top: 1rem;
+  }
+
+  .code-block pre {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    color: #e6edf3;
+  }
+
+  .kw { color: #ff7b72; }
+  .fn { color: #d2a8ff; }
+  .cm { color: #8b949e; font-style: italic; }
+  .num { color: #79c0ff; }
+  .var { color: #ffa657; }
+  .str { color: #a5d6ff; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    background: rgba(0,0,0,0.3);
+    padding: 0.4rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--subtext);
+    background: transparent;
+    border: none;
+  }
+
+  .tab.active {
+    background: var(--water-deep);
+    color: #fff;
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Custom input */
+  .input-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .array-input {
+    flex: 1;
+    min-width: 200px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+    outline: none;
+  }
+
+  .array-input:focus { border-color: rgba(56,189,248,0.5); }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 1.2rem;
+    margin-top: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--subtext);
+  }
+  .legend-box {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 100px;
+    margin-top: 1rem;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--water-deep), var(--water));
+    border-radius: 100px;
+    transition: width 0.4s;
+    width: 0%;
+  }
+
+  .animate-pulse {
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Rain effect -->
+<div class="rain-bg" id="rainBg"></div>
+
+<div class="container">
+
+  <header>
+    <div class="badge">LeetCode #42 · Hard</div>
+    <h1>Trapping Rain Water</h1>
+    <p class="subtitle">A visual, step-by-step guide to one of coding's most beautiful problems — explained so anyone can understand it.</p>
+  </header>
+
+  <!-- Section 1: What is the problem? -->
+  <div class="section">
+    <div class="section-title">🤔 What's the Problem?</div>
+    <p class="section-desc">Imagine you're looking at a city skyline from the side. After it rains, water collects in the "valleys" between tall buildings. How much total water is trapped?</p>
+
+    <div class="analogy-grid">
+      <div class="analogy-card">
+        <div class="analogy-icon">🏙️</div>
+        <h3>Think of Buildings</h3>
+        <p>Each number in the array is like a building's height. A short building between two tall ones will collect water — just like a bowl!</p>
+      </div>
+      <div class="analogy-card">
+        <div class="analogy-icon">🛁</div>
+        <h3>Think of a Bathtub</h3>
+        <p>Water fills to the level of the shorter wall. If one wall is height 3 and the other is height 5, water fills up to height 3 on that side.</p>
+      </div>
+      <div class="analogy-card">
+        <div class="analogy-icon">⛰️</div>
+        <h3>The Real Question</h3>
+        <p>For each position, how high can water sit above it? Water height = the shorter of the two tallest walls on each side, minus the ground height.</p>
+      </div>
+      <div class="analogy-card">
+        <div class="analogy-icon">📦</div>
+        <h3>The Input & Output</h3>
+        <p>Input: an array like <code style="color:var(--water)">[0,1,0,2,1,0,1,3,2,1,2,1]</code><br>Output: total water units trapped → <code style="color:var(--accent)">6</code></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Interactive Visualization -->
+  <div class="section">
+    <div class="section-title">🎮 See It Happen Live</div>
+    <p class="section-desc">Watch the algorithm scan through each bar, find the tallest walls on each side, and calculate exactly how much water each position holds.</p>
+
+    <div class="viz-container">
+      <div id="bar-chart"></div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-box" style="background:linear-gradient(135deg,#64748b,#334155)"></div> Ground / Rock</div>
+      <div class="legend-item"><div class="legend-box" style="background:linear-gradient(to bottom,rgba(56,189,248,0.7),rgba(3,105,161,0.8))"></div> Trapped Water</div>
+      <div class="legend-item"><div class="legend-box" style="background:linear-gradient(135deg,var(--wall),#7c3aed)"></div> Current Position</div>
+    </div>
+
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="step-info" id="stepInfo">
+      👆 Press <strong>Step Forward</strong> to watch the algorithm process each bar one by one, or hit <strong>Auto Play</strong> to watch it solve itself!
+    </div>
+
+    <div class="controls">
+      <button class="btn-primary" onclick="stepForward()">▶ Step Forward</button>
+      <button class="btn-accent" onclick="autoPlay()" id="autoBtn">⚡ Auto Play</button>
+      <button class="btn-secondary" onclick="resetViz()">↺ Reset</button>
+      <button class="btn-secondary" onclick="showAllWater()">💧 Show All Water</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-val" id="statCurrent" style="color:var(--wall)">—</div>
+        <div class="stat-label">Current Index</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statWater" style="color:var(--water)">0</div>
+        <div class="stat-label">Water Collected</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statTotal" style="color:var(--accent)">6</div>
+        <div class="stat-label">Total Answer</div>
+      </div>
+    </div>
+
+    <!-- Custom input -->
+    <div style="margin-top:1.5rem; padding-top:1.5rem; border-top: 1px solid var(--border);">
+      <div style="font-size:0.85rem; font-weight:600; margin-bottom:0.4rem;">🎨 Try Your Own Array</div>
+      <div class="input-group">
+        <input class="array-input" id="customInput" placeholder="e.g. 4,2,0,3,2,5" value="0,1,0,2,1,0,1,3,2,1,2,1">
+        <button class="btn-primary" onclick="loadCustom()">Load & Visualize</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: The Key Insight -->
+  <div class="section">
+    <div class="section-title">💡 The Key Insight</div>
+    <p class="section-desc">The secret to solving this problem is realizing that the water level at ANY position is determined by just two things:</p>
+
+    <div class="step-cards">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div>
+          <h3>Find the tallest wall to the LEFT 🟢</h3>
+          <p>Scan from the very beginning up to your current position. What's the tallest bar you saw? That's your left boundary — water can't go above it on the left side.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div>
+          <h3>Find the tallest wall to the RIGHT 🔴</h3>
+          <p>Scan from the very end back to your current position. What's the tallest bar? That's your right boundary — water can't go above it on the right side.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div>
+          <h3>Take the MINIMUM of both walls 💧</h3>
+          <p>Water only fills to the level of the shorter wall (it would spill over otherwise). <strong>Water level = min(left_max, right_max)</strong></p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">4</div>
+        <div>
+          <h3>Subtract the ground height 🏔️</h3>
+          <p>The ground itself takes up space. <strong>Water at position i = water_level − height[i]</strong>. If this is negative, there's no water (you're on top of a tall bar).</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 4: Python Code -->
+  <div class="section">
+    <div class="section-title">🐍 Python Solution</div>
+    <p class="section-desc">Three different approaches, from simple to most efficient. Each one is explained in plain English.</p>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab(this,'tab1')">🧠 Easy to Understand</button>
+      <button class="tab" onclick="switchTab(this,'tab2')">🚀 Efficient (Two Pointers)</button>
+      <button class="tab" onclick="switchTab(this,'tab3')">📝 Step-by-Step Trace</button>
+    </div>
+
+    <div class="tab-content active" id="tab1">
+      <div class="code-block"><pre><span class="cm"># ============================================
+# APPROACH 1: Precompute Left & Right Maximums
+# Time: O(n)  |  Space: O(n)
+# ============================================</span>
+
+<span class="kw">def</span> <span class="fn">trap</span>(height):
+    <span class="cm"># If the array is empty or too small, no water</span>
+    <span class="kw">if</span> <span class="kw">not</span> height:
+        <span class="kw">return</span> <span class="num">0</span>
+    
+    n = <span class="fn">len</span>(height)
+
+    <span class="cm"># Step 1: For every position, find the tallest bar to its LEFT
+    # (including itself)</span>
+    left_max = [<span class="num">0</span>] * n
+    left_max[<span class="num">0</span>] = height[<span class="num">0</span>]
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, n):
+        left_max[i] = <span class="fn">max</span>(left_max[i-<span class="num">1</span>], height[i])
+    
+    <span class="cm"># Step 2: For every position, find the tallest bar to its RIGHT
+    # (including itself)</span>
+    right_max = [<span class="num">0</span>] * n
+    right_max[n-<span class="num">1</span>] = height[n-<span class="num">1</span>]
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(n-<span class="num">2</span>, -<span class="num">1</span>, -<span class="num">1</span>):
+        right_max[i] = <span class="fn">max</span>(right_max[i+<span class="num">1</span>], height[i])
+    
+    <span class="cm"># Step 3: For each position, calculate how much water it holds</span>
+    total_water = <span class="num">0</span>
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(n):
+        <span class="cm"># Water level is the shorter of the two walls</span>
+        water_level = <span class="fn">min</span>(left_max[i], right_max[i])
+        <span class="cm"># Water above this bar = water level - bar height</span>
+        water_here = water_level - height[i]
+        total_water += water_here  <span class="cm"># always >= 0</span>
+    
+    <span class="kw">return</span> total_water
+
+<span class="cm"># Test it!</span>
+height = [<span class="num">0</span>,<span class="num">1</span>,<span class="num">0</span>,<span class="num">2</span>,<span class="num">1</span>,<span class="num">0</span>,<span class="num">1</span>,<span class="num">3</span>,<span class="num">2</span>,<span class="num">1</span>,<span class="num">2</span>,<span class="num">1</span>]
+<span class="fn">print</span>(trap(height))  <span class="cm"># Output: 6 ✓</span></pre></div>
+    </div>
+
+    <div class="tab-content" id="tab2">
+      <div class="code-block"><pre><span class="cm"># ============================================
+# APPROACH 2: Two Pointers (Best!)
+# Time: O(n)  |  Space: O(1) — no extra arrays!
+# ============================================</span>
+
+<span class="kw">def</span> <span class="fn">trap</span>(height):
+    <span class="kw">if</span> <span class="kw">not</span> height:
+        <span class="kw">return</span> <span class="num">0</span>
+
+    <span class="cm"># Two pointers — start from both ends and move inward</span>
+    left, right = <span class="num">0</span>, <span class="fn">len</span>(height) - <span class="num">1</span>
+    
+    <span class="cm"># Track the highest bar seen so far from each side</span>
+    left_max = right_max = <span class="num">0</span>
+    
+    total_water = <span class="num">0</span>
+
+    <span class="kw">while</span> left &lt; right:
+        <span class="kw">if</span> height[left] &lt; height[right]:
+            <span class="cm"># The LEFT side is the limiting factor</span>
+            <span class="kw">if</span> height[left] &gt;= left_max:
+                left_max = height[left]   <span class="cm"># new max on left</span>
+            <span class="kw">else</span>:
+                total_water += left_max - height[left]  <span class="cm"># water!</span>
+            left += <span class="num">1</span>
+        <span class="kw">else</span>:
+            <span class="cm"># The RIGHT side is the limiting factor</span>
+            <span class="kw">if</span> height[right] &gt;= right_max:
+                right_max = height[right]  <span class="cm"># new max on right</span>
+            <span class="kw">else</span>:
+                total_water += right_max - height[right]  <span class="cm"># water!</span>
+            right -= <span class="num">1</span>
+
+    <span class="kw">return</span> total_water
+
+<span class="cm"># Why does this work?
+# If left wall &lt; right wall → left is the bottleneck.
+# We already know there's a right wall that's taller,
+# so water is fully determined by the left max alone!
+# Same logic applies when right wall &lt; left wall.</span></pre></div>
+    </div>
+
+    <div class="tab-content" id="tab3">
+      <div class="code-block"><pre><span class="cm"># ============================================
+# STEP-BY-STEP TRACE for [3,0,1,0,4,0,2]
+# Answer should be: 10
+# ============================================</span>
+
+height  = [<span class="num">3</span>, <span class="num">0</span>, <span class="num">1</span>, <span class="num">0</span>, <span class="num">4</span>, <span class="num">0</span>, <span class="num">2</span>]
+left_max= [<span class="num">3</span>, <span class="num">3</span>, <span class="num">3</span>, <span class="num">3</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">4</span>]  <span class="cm"># highest bar to the left</span>
+right_max=[<span class="num">4</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">4</span>, <span class="num">2</span>, <span class="num">2</span>]  <span class="cm"># highest bar to the right</span>
+
+<span class="cm"># At each index i:
+#   water_level = min(left_max[i], right_max[i])
+#   water_here  = water_level - height[i]
+
+# i=0: min(3,4)=3,  3-3 = 0  (it's a wall, no water on top)
+# i=1: min(3,4)=3,  3-0 = 3  💧💧💧
+# i=2: min(3,4)=3,  3-1 = 2  💧💧
+# i=3: min(3,4)=3,  3-0 = 3  💧💧💧
+# i=4: min(4,4)=4,  4-4 = 0  (it's the tallest wall)
+# i=5: min(4,2)=2,  2-0 = 2  💧💧
+# i=6: min(4,2)=2,  2-2 = 0  (it's a wall)
+
+# Total = 0+3+2+3+0+2+0 = 10 ✓</span>
+
+<span class="fn">print</span>(<span class="str">"Total water trapped:"</span>, <span class="fn">trap</span>(height))  <span class="cm"># 10</span></pre></div>
+    </div>
+  </div>
+
+  <!-- Section 5: Complexity -->
+  <div class="section">
+    <div class="section-title">⚡ How Fast Is It?</div>
+    <p class="section-desc">Don't worry about the jargon — here's what it means in plain English.</p>
+
+    <div class="analogy-grid">
+      <div class="analogy-card">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--green);letter-spacing:0.05em">O(n)</div>
+        <h3>Time Complexity</h3>
+        <p>The algorithm looks at each bar exactly once (or twice in the precompute approach). If you double the number of bars, it takes roughly double the time — very efficient!</p>
+      </div>
+      <div class="analogy-card">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--accent);letter-spacing:0.05em">O(1)</div>
+        <h3>Space Complexity (Two-Pointer)</h3>
+        <p>The two-pointer solution only uses 4 extra variables no matter how big the array is. Like solving the puzzle in your head without any notepad!</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;color:var(--subtext);font-size:0.8rem;margin-top:3rem;padding:1rem 0;">
+    Made with 💙 to make coding beautiful — LeetCode #42 Trapping Rain Water
+  </div>
+</div>
+
+<script>
+// ========== RAIN ANIMATION ==========
+function createRain() {
+  const bg = document.getElementById('rainBg');
+  for (let i = 0; i < 60; i++) {
+    const drop = document.createElement('div');
+    drop.className = 'raindrop';
+    drop.style.left = Math.random() * 100 + '%';
+    drop.style.height = (15 + Math.random() * 25) + 'px';
+    drop.style.animationDuration = (0.6 + Math.random() * 0.8) + 's';
+    drop.style.animationDelay = (Math.random() * 2) + 's';
+    bg.appendChild(drop);
+  }
+}
+createRain();
+
+// ========== VISUALIZATION ==========
+let height = [0,1,0,2,1,0,1,3,2,1,2,1];
+let currentStep = -1;
+let autoInterval = null;
+let waterAmounts = [];
+let leftMax = [];
+let rightMax = [];
+
+function computeArrays() {
+  const n = height.length;
+  leftMax = Array(n).fill(0);
+  rightMax = Array(n).fill(0);
+  waterAmounts = Array(n).fill(0);
+  leftMax[0] = height[0];
+  for (let i = 1; i < n; i++) leftMax[i] = Math.max(leftMax[i-1], height[i]);
+  rightMax[n-1] = height[n-1];
+  for (let i = n-2; i >= 0; i--) rightMax[i] = Math.max(rightMax[i+1], height[i]);
+  let total = 0;
+  for (let i = 0; i < n; i++) {
+    waterAmounts[i] = Math.max(0, Math.min(leftMax[i], rightMax[i]) - height[i]);
+    total += waterAmounts[i];
+  }
+  return total;
+}
+
+function buildChart(showWater = []) {
+  const chart = document.getElementById('bar-chart');
+  chart.innerHTML = '';
+  const maxH = Math.max(...height, 1);
+  const totalPx = 200;
+
+  height.forEach((h, i) => {
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    col.id = 'col-' + i;
+
+    const w = showWater[i] || 0;
+    const stonePx = Math.round((h / maxH) * totalPx);
+    const waterPx = Math.round((w / maxH) * totalPx);
+
+    if (waterPx > 0) {
+      const waterEl = document.createElement('div');
+      waterEl.className = 'water-cell';
+      waterEl.id = 'water-' + i;
+      waterEl.style.height = waterPx + 'px';
+      col.appendChild(waterEl);
+    }
+
+    if (h > 0) {
+      const stoneEl = document.createElement('div');
+      stoneEl.className = 'stone-cell';
+      stoneEl.id = 'stone-' + i;
+      stoneEl.style.height = stonePx + 'px';
+      col.appendChild(stoneEl);
+    } else {
+      // Empty slot placeholder
+      const emptyEl = document.createElement('div');
+      emptyEl.style.height = '2px';
+      emptyEl.style.width = '100%';
+      emptyEl.style.background = 'rgba(255,255,255,0.1)';
+      col.appendChild(emptyEl);
+    }
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'bar-tooltip';
+    tooltip.textContent = `i=${i} h=${h}`;
+    col.appendChild(tooltip);
+
+    const idx = document.createElement('div');
+    idx.className = 'bar-idx';
+    idx.textContent = i;
+    col.appendChild(idx);
+
+    chart.appendChild(col);
+  });
+}
+
+function getStepMessage(i) {
+  const lm = leftMax[i], rm = rightMax[i], wl = Math.min(lm, rm), w = waterAmounts[i];
+  const h = height[i];
+  return `<strong>Position ${i}</strong> — Height = <span class="highlight-a">${h}</span><br>
+    🟢 Tallest left wall: <span class="highlight-g">${lm}</span> &nbsp;|&nbsp; 🔴 Tallest right wall: <span class="highlight-r">${rm}</span><br>
+    💧 Water level = min(${lm}, ${rm}) = <span class="highlight">${wl}</span> — ground height ${h} = <span class="highlight">${w}</span> units`;
+}
+
+function stepForward() {
+  stopAuto();
+  if (currentStep < height.length - 1) {
+    currentStep++;
+    renderStep(currentStep);
+  } else {
+    document.getElementById('stepInfo').innerHTML = `🎉 <strong>Done!</strong> Total water trapped = <span class="highlight-a">${computeArrays()}</span> units. The algorithm checked every bar exactly once!`;
+  }
+}
+
+function renderStep(idx) {
+  // Show water up to current step
+  const showWater = height.map((_, i) => i <= idx ? waterAmounts[i] : 0);
+  buildChart(showWater);
+
+  // Highlight current
+  const stone = document.getElementById('stone-' + idx);
+  if (stone) stone.classList.add('highlighted');
+
+  // Stats
+  document.getElementById('statCurrent').textContent = idx;
+  let collected = waterAmounts.slice(0, idx + 1).reduce((a, b) => a + b, 0);
+  document.getElementById('statWater').textContent = collected;
+
+  // Step info
+  document.getElementById('stepInfo').innerHTML = getStepMessage(idx);
+
+  // Progress
+  const pct = ((idx + 1) / height.length) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function showAllWater() {
+  stopAuto();
+  currentStep = height.length - 1;
+  buildChart(waterAmounts);
+  const total = computeArrays();
+  document.getElementById('statCurrent').textContent = '✓';
+  document.getElementById('statWater').textContent = total;
+  document.getElementById('stepInfo').innerHTML = `💧 All <span class="highlight-a">${total}</span> units of water shown! Every "valley" between taller bars fills up. Hover over bars to see their index.`;
+  document.getElementById('progressFill').style.width = '100%';
+}
+
+function resetViz() {
+  stopAuto();
+  currentStep = -1;
+  computeArrays();
+  buildChart([]);
+  document.getElementById('stepInfo').innerHTML = '👆 Press <strong>Step Forward</strong> to watch the algorithm process each bar one by one, or hit <strong>Auto Play</strong> to watch it solve itself!';
+  document.getElementById('statCurrent').textContent = '—';
+  document.getElementById('statWater').textContent = '0';
+  document.getElementById('progressFill').style.width = '0%';
+}
+
+function autoPlay() {
+  if (autoInterval) { stopAuto(); return; }
+  document.getElementById('autoBtn').textContent = '⏸ Pause';
+  autoInterval = setInterval(() => {
+    if (currentStep < height.length - 1) {
+      currentStep++;
+      renderStep(currentStep);
+    } else {
+      stopAuto();
+      document.getElementById('stepInfo').innerHTML = `🎉 <strong>Done!</strong> Total water trapped = <span class="highlight-a">${computeArrays()}</span> units!`;
+    }
+  }, 700);
+}
+
+function stopAuto() {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+  document.getElementById('autoBtn').textContent = '⚡ Auto Play';
+}
+
+function loadCustom() {
+  const raw = document.getElementById('customInput').value;
+  try {
+    const arr = raw.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x >= 0);
+    if (arr.length < 2) throw new Error();
+    height = arr;
+    const total = computeArrays();
+    document.getElementById('statTotal').textContent = total;
+    resetViz();
+  } catch(e) {
+    document.getElementById('stepInfo').innerHTML = '<span style="color:var(--red)">⚠️ Please enter valid non-negative numbers separated by commas.</span>';
+  }
+}
+
+// ========== TABS ==========
+function switchTab(el, id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+
+// ========== INIT ==========
+computeArrays();
+buildChart([]);
+document.getElementById('statTotal').textContent = computeArrays();
+</script>
+</body>
+</html>
